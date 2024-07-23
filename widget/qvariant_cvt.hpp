@@ -1,3 +1,5 @@
+#pragma once
+
 #include <optional>
 #include <memory>
 #include <type_traits>
@@ -111,7 +113,8 @@ namespace qutils
 	void cvt_to_element(V& v, T& t, int index, F func, std::index_sequence<Is...>)
 	{
 		using FT = void(V&, T&, F);
-		static constexpr FT* arr[] = { &cvt_elem<Is, V, T, F>... };
+		//获取模板函数地址 std::addressof(fun<Tx, Ty>) or &func<Tx, Ty>
+		static constexpr FT* arr[] = { &cvt_elem<Is, V, T, F>... }; 
 		arr[index](v, t, func);
 	}
 

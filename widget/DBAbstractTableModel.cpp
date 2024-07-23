@@ -27,23 +27,15 @@ DBAbstractTableModel::~DBAbstractTableModel()
 
 int DBAbstractTableModel::rowCount(const QModelIndex& parent) const
 {
-    switch (_data_type)
-    {
-    case DBAbstractTableModel::DataType::PRODUCE:
-        return _prods.size();
-        break;
-    case DBAbstractTableModel::DataType::DCR:
-        return _dcrs.size();
-        break;
-    case DBAbstractTableModel::DataType::SHORT:
-        return _shorts.size();
-        break;
-    case DBAbstractTableModel::DataType::INVALID:
-        break;
-    default:
-        break;
-    }
-	return -1;
+    using func = std::function<int()>;
+    static const func get_row[] = {
+        [this]() { return _prods.rows(); },
+        [this]() { return _dcrs.rows(); },
+        [this]() { return _shorts.rows(); },
+        []() { return -1; } /*invalid type*/
+    };
+    size_t id = static_cast<size_t>(_data_type);
+    return get_row[id]();
 }
 
 int DBAbstractTableModel::columnCount(const QModelIndex& parent) const
@@ -128,21 +120,20 @@ bool DBAbstractTableModel::insertRows(int row, int count, const QModelIndex& par
 {
     if (row < 0 || row > rowCount() || count < 1)
         return false;
+
     /*从什么位置开始插入 first为插入后row的index, last为插入后最后row的index*/
     beginInsertRows(parent, row, row + count - 1);
-    if (_data_type == DataType::PRODUCE) {
-        for (int i = 0; i < count; ++i)
-            _prods.emplace_back(ProdData::Produce{ -1, "", "", 0, std::nullopt }); //只支持尾部插入
-    }
-    else if (_data_type == DataType::DCR) {
-        for (int i = 0; i < count; ++i)
-            _dcrs.emplace_back(ProdData::ProdDCR{0, 0, 0, 0}); //只支持尾部插入
-    }
-    else if (_data_type == DataType::SHORT) {
-        for (int i = 0; i < count; ++i)
-            _shorts.emplace_back(ProdData::ProdShort{ 0, 0, 0, 0, 0 });
-    }
-    else {}
+
+    using namespace ProdData;
+    using func = std::function<void()>;
+    static const func insert[] = {
+        [this]() { _prods.insert(Produce{-1, "", "", 0, std::nullopt}); },
+        [this]() { _dcrs.insert(ProdDCR{0, 0, 0, 0}); },
+        [this]() { _shorts.insert(ProdShort{ 0, 0, 0, 0, 0 }); },
+        [](){ }
+    };
+    size_t id = static_cast<size_t>(_data_type);
+    insert[id]();
 
     endInsertRows();
     return true;
@@ -154,18 +145,19 @@ bool DBAbstractTableModel::removeRows(int row, int count, const QModelIndex& par
         return false;
 
     beginRemoveRows(parent, row, row + count - 1);
+    using func = std::function<void(int)>;
+    static const func remove[] = {
+        [this](int ri) { _prods.remove(ri); },
+        [this](int ri) { _dcrs.remove(ri); },
+        [this](int ri) { _shorts.remove(ri); },
+        [](int){  }
+    };
 
-    if (_data_type == DataType::PRODUCE)
-        _prods.erase(_prods.begin() + row, _prods.begin() + row + count - 1);
-    else if (_data_type == DataType::DCR)
-        _dcrs.erase(_dcrs.begin() + row, _dcrs.begin() + row + count - 1);
-    else if (_data_type == DataType::SHORT)
-        _shorts.erase(_shorts.begin() + row, _shorts.begin() + row + count - 1);
-    else {}
-
+    size_t id = static_cast<size_t>(_data_type);
+    remove[id](row);
 
     endRemoveRows();
-    return false;
+    return true;
 }
 
 void DBAbstractTableModel::setDBStorage(const std::string& filename)
@@ -177,46 +169,33 @@ QVariant DBAbstractTableModel::displayData(DataType type, const QModelIndex& ind
 {
     int row = index.row();
     int col = index.column();
-    switch (type)
-    {
-    case DataType::PRODUCE:
-        return qutils::cvt_from_element(_prods[row], col);
-        break;
-    case DataType::DCR:
-        return qutils::cvt_from_element(_dcrs[row], col);
-        break;
-    case DataType::SHORT:
-        return qutils::cvt_from_element(_shorts[row], col);
-        break;
-    case DataType::INVALID:
-    default:
-        break;
-    }
-    return QVariant();
+
+    using func = std::function<QVariant(int, int)>;
+    static const func disp[] = {
+        [this](int row, int col){ return _prods.elem_to_qvar(row, col); },
+        [this](int row, int col){ return _dcrs.elem_to_qvar(row, col); },
+        [this](int row, int col){ return _shorts.elem_to_qvar(row, col); },
+        [](int, int) { return QVariant(); }
+    };
+    size_t id = static_cast<size_t>(type);
+    return disp[id](row, col);
 }
 
 bool DBAbstractTableModel::updateData(DataType type, const QModelIndex& index, const QVariant& var)
 {
-    if (!var.isValid() || var.isNull())
-        return false;
-
     int row = index.row();
     int col = index.column();
-    switch (type)
-    {
-    case DataType::PRODUCE:
-        qutils::cvt_to_element(var, _prods[row], col);
-        break;
-    case DBAbstractTableModel::DataType::DCR:
-        qutils::cvt_to_element(var, _dcrs[row], col);
-        break;
-    case DBAbstractTableModel::DataType::SHORT:
-        qutils::cvt_to_element(var, _shorts[row], col);
-        break;
-    case DBAbstractTableModel::DataType::INVALID:
-    default:
-        return false;
-    }
+
+    using func = std::function<void(int, int, const QVariant&)>;
+    static const func update[] = {
+        [this](int row, int col, const QVariant& var) { _prods.elem_from_qvar(row, col, var); },
+        [this](int row, int col, const QVariant& var) { _prods.elem_from_qvar(row, col, var); },
+        [this](int row, int col, const QVariant& var) { _prods.elem_from_qvar(row, col, var); },
+        [](int, int, const QVariant&) {  },
+    };
+    
+    auto id = static_cast<size_t>(type);
+    update[id](row, col, var);
 
     emit dataChanged(index, index);
     return true;

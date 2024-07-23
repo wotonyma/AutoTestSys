@@ -59,10 +59,10 @@ void DBWidget::addDBOptionBtn(QLayout* opt_lyt)
 		//_model->updateItems(_model->getDataType(), std::move(cond));
 		auto type = _model->getDataType();
 		if (type == DBAbstractTableModel::DataType::PRODUCE) {
-			_model->updateItems(_model->getDataType(), where(lesser_or_equal(&ProdData::Produce::id, 100)));
+			_model->setDataFromDB(_model->getDataType(), where(lesser_or_equal(&ProdData::Produce::id, 100)));
 		}
 		else {
-			_model->updateItems(_model->getDataType(), where(lesser_or_equal(&ProdData::ProdDCR::id, 100)));
+			_model->setDataFromDB(_model->getDataType(), where(lesser_or_equal(&ProdData::ProdDCR::id, 100)));
 		}
 		
 		});
@@ -110,6 +110,6 @@ void DBWidget::selectProduce()
 
 	auto type = _model->getDataType();
 	if (DBAbstractTableModel::DataType::PRODUCE == type)
-		_model->updateItems(type, std::move(cond));
+		_model->setDataFromDB(type, std::move(cond));
 
 }

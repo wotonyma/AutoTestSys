@@ -5,6 +5,7 @@
 #include <memory>
 #include "prod_data.h"
 #include "prod_storage.h"
+#include "model_data.h"
 
 class DBAbstractTableModel : public QAbstractTableModel
 {
@@ -30,7 +31,7 @@ public:
 		INVALID
 	};
 	template<typename Cond>
-	void updateItems(DataType type, Cond&& cond);
+	void setDataFromDB(DataType type, Cond&& cond);
 
 	inline void setDataType(DataType t) { _data_type = t; }
 	inline decltype(auto) getDataType() const { return _data_type; }
@@ -42,41 +43,29 @@ private:
 
 	DataType _data_type;	//当前使用model
 	QVector<QStringList> _horizontalHeader; //各model表头
-	//QStringList _verticalHeader;
 
 	std::unique_ptr<ProdDB::ProdDBStorage> _db;
 
-	using VecProd = std::vector<ProdData::Produce>;
-	using VecDCR = std::vector<ProdData::ProdDCR>;
-	using VecShort = std::vector<ProdData::ProdShort>;
-	VecProd _prods;
-	VecDCR _dcrs;
-	VecShort _shorts;
-	std::vector<size_t> _remain;
-	std::vector<size_t> _updated;
-	std::vector<size_t> _inserted;
-	std::vector<size_t> _removed;
+	ModelData<ProdData::Produce> _prods;
+	ModelData<ProdData::ProdDCR> _dcrs;
+	ModelData<ProdData::ProdShort> _shorts;
 };
 
 template<typename Cond>
-inline void DBAbstractTableModel::updateItems(DataType type, Cond&& cond)
+inline void DBAbstractTableModel::setDataFromDB(DataType type, Cond&& cond)
 {
 	beginResetModel();
-	switch (type)
-	{
-	case DBAbstractTableModel::DataType::PRODUCE:
-		_prods = _db->query<ProdData::Produce>(std::forward<Cond>(cond));
-		break;
-	case DBAbstractTableModel::DataType::DCR:
-		_dcrs = _db->query<ProdData::ProdDCR>(std::forward<Cond>(cond));
-		break;
-	case DBAbstractTableModel::DataType::SHORT:
-		_shorts = _db->query<ProdData::ProdShort>(std::forward<Cond>(cond));
-		break;
-	case DBAbstractTableModel::DataType::INVALID:
-		break;
-	default:
-		break;
-	}
+
+	using func = std::function<void(Cond&& cond)>;
+
+	static const func querys[] = {
+		[this](Cond&& cond) { _prods.set_data(_db->query<ProdData::Produce>(std::forward<Cond>(cond))); },
+		[this](Cond&& cond) { _dcrs.set_data(_db->query<ProdData::ProdDCR>(std::forward<Cond>(cond))); },
+		[this](Cond&& cond) { _shorts.set_data(_db->query<ProdData::ProdShort>(std::forward<Cond>(cond))); },
+		[](Cond&&){ }
+	};
+	auto id = static_cast<size_t>(type); //data type id
+	querys[id](std::forward<Cond>(cond));
+
 	endResetModel();
 }

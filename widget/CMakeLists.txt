@@ -14,8 +14,8 @@ find_package(fmt CONFIG REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(SqliteOrm CONFIG REQUIRED)
 
-set(widget_inc "db_widget.h" "DBAbstractTableModel.h")
-set(widget_src "db_widget.cpp" "DBAbstractTableModel.cpp")
+set(widget_inc "db_widget.h" "DBAbstractTableModel.h") 
+set(widget_src "db_widget.cpp" "DBAbstractTableModel.cpp" )
 
 target_sources(${proj_exec} PUBLIC ${widget_inc} ${widget_src})
 
